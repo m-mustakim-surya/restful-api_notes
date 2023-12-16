@@ -1,21 +1,21 @@
-const { nanoid } = require('nanoid');
-require('../utils/db');
-const Notes = require('../model/notes');
+const { nanoid } = require("nanoid");
+const notes = require("./notes");
 
-const addNoteHandler = async (request, h) => {
+const addNoteHandler = (request, h) => {
     const {title, tags, body} = request.payload;
 
     const id = nanoid(16);
     const createdAt = new Date().toISOString();
     const updatedAt = createdAt;
 
-    const newNote = new Notes({
+    const newNote = {
         title, tags, body, id, createdAt, updatedAt,
-    });
+    }
 
-    try {
-        await newNote.save();
+    notes.push(newNote);
 
+    const isSuccess = notes.filter((note) => note.id === id).length > 0;
+    if(isSuccess){
         const response = h.response({
             status: 'success',
             message: 'Note added successfully!',
@@ -25,136 +25,97 @@ const addNoteHandler = async (request, h) => {
         });
         response.code(201);
         return response;
-    } catch (error) {
-        const response = h.response({
-            status: 'fail',
-            message: 'Failed to add note',
-        });
-        response.code(500);
-        return response;
     }
+
+    const response = h.response({
+        status: 'fail',
+        message: 'Failed to add note',
+    });
+    response.code(500);
+    return response;
 };
 
-const getAllNotesHandler = async () => {
-    try {
-        const notes = await Notes.find();
+const getAllNotesHandler = () => ({
+    status: 'success',
+    data: {
+        notes,
+    },
+});
+
+const getNoteByIdHandler = (request, h) => {
+    const {id} = request.params;
+
+    const note = notes.filter((n) => n.id === id)[0]
+
+    if(note !== undefined){
         return {
             status: 'success',
             data: {
-                notes,
+                note,
             },
-        }
-    } catch (error) {
-        const response = h.response({
-            status: 'fail',
-            message: 'Failed to fetch note',
-        });
-        response.code(500);
-        return response;
+        };
     }
+
+    const response = h.response({
+        status: 'fail',
+        message: 'Note not found',
+    });
+    response.code(404);
+    return response;
 };
 
-const getNoteByIdHandler = async (request, h) => {
+const editNoteByIdHandler = (request, h) => {
     const {id} = request.params;
-    
-    try {
-        const note = await Notes.findOne({id});
-    
-        if(note){
-            return {
-                status: 'success',
-                data: {
-                    note,
-                },
-            };
-        }
-    
-        const response = h.response({
-            status: 'fail',
-            message: 'Note not found',
-        });
-        response.code(404);
-        return response;
-    } catch (error) {
-        const response = h.response({
-            status: 'fail',
-            message: 'Failed to fetch note',
-        });
-        response.code(500);
-        return response;
-    }
-};
 
-const editNoteByIdHandler = async (request, h) => {
-    const {id} = request.params;
     const {title, tags, body} = request.payload;
     const updatedAt = new Date().toISOString();
 
-    try {
-        const updateNote = await Notes.updateOne(
-            {id},
-            {
-                title,
-                tags,
-                body,
-                updatedAt
-            }
-        );
-
-        if(updateNote.modifiedCount === 1){
-            const response = h.response({
-                status: 'success',
-                message: 'Note successfully updated!',
-            });
-            response.code(200);
-            return response;
-        }
+    const index = notes.findIndex((note) => note.id === id);
+    if(index !== -1){
+        notes[index] = {
+            ...notes[index],
+            title,
+            tags,
+            body,
+            updatedAt
+        };
 
         const response = h.response({
-            status: 'fail',
-            message: 'Failed to update note. Id not found'
+            status: 'success',
+            message: 'Note successfully updated!',
         });
-        response.code(404);
-        return response;
-    } catch (error) {
-        const response = h.response({
-            status: 'fail',
-            message: 'Failed to update note',
-        });
-        response.code(500);
+        response.code(200);
         return response;
     }
+
+    const response = h.response({
+        status: 'fail',
+        message: 'Failed to update note. Id not found'
+    });
+    response.code(404);
+    return response;
 };
 
-const deleteNoteByIdHandler = async (request, h) => {
+const deleteNoteByIdHandler = (request, h) => {
     const {id} = request.params;
-
-    try {
-        const deleteNote = await Notes.deleteOne({id});
-        
-        if(deleteNote.deletedCount === 1){
-            const response = h.response({
-                status: 'success',
-                message: 'Note successfully deleted!',
-            });
-            response.code(200);
-            return response;
-        }
-
+    
+    const index = notes.findIndex((note) => note.id === id);
+    if(index !== -1){
+        notes.splice(index, 1);
         const response = h.response({
-            status: 'fail',
-            message: 'Failed to delete note. Id not found',
+            status: 'success',
+            message: 'Note successfully deleted!',
         });
-        response.code(404);
-        return response;
-    } catch (error) {
-        const response = h.response({
-            status: 'fail',
-            message: 'Failed to delete note',
-        });
-        response.code(500);
+        response.code(200);
         return response;
     }
+
+    const response = h.response({
+        status: 'fail',
+        message: 'Failed to delete note. Id not found',
+    });
+    response.code(404);
+    return response;
 };
 
 module.exports = {addNoteHandler, getAllNotesHandler, getNoteByIdHandler, editNoteByIdHandler, deleteNoteByIdHandler};
